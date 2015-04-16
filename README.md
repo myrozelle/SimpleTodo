@@ -10,4 +10,5 @@ Functionalities:
 
 
 Walkthrough of all basic functionalities
+
 ![alt tag](walkthrough_V0.gif)
