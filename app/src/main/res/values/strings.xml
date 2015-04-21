@@ -8,4 +8,7 @@
     <string name="title_activity_edit_item">EditItemActivity</string>
     <string name="edit_label">Edit Item Below:</string>
     <string name="save_edit_label">Save</string>
+
+<!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>

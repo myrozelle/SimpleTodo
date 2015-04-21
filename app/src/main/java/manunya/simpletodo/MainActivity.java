@@ -1,50 +1,60 @@
 package manunya.simpletodo;
 
+//import android.app.FragmentManager;
+
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.app.FragmentManager;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
 
-import org.apache.commons.io.FileUtils;
-
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 
+//import android.support.v4.app.FragmentManager;
 
-public class MainActivity extends ActionBarActivity {
-    ArrayList<String> items;
-    ArrayAdapter<String> itemsAdapter;
+
+public class MainActivity extends ActionBarActivity implements EditItemFragment.EditItemDialogListener, DatePickerFragment.DatePickerDialogListener {
+    //ArrayList<String> items;
+    ArrayList<TodoItem> items;
+    //ArrayAdapter<String> itemsAdapter;
+    ItemsAdapter itemsAdapter;
     ListView lvItems;
     private final int REQUEST_CODE = 20;
+    TodoItemDatabase db;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         lvItems = (ListView) findViewById(R.id.lvItems);
-        //items = new ArrayList<String>(); //use readItems() instead
-        readItems();
-        itemsAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, items);
+        db = new TodoItemDatabase(this);
+        //db.fix();
+        items = db.getAllTodoItems();
+
+        // Create the adapter to convert the array to views
+        itemsAdapter = new ItemsAdapter(this, items);
+
+        //readItems(); // upgrade to use database
+        //readDatabase();
         lvItems.setAdapter(itemsAdapter);
-        //items.add("First item");
         setupListViewListener();
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == RESULT_OK && requestCode == REQUEST_CODE) {
-            String editItemString = data.getExtras().getString("editItemString");
+            //String editItemString = data.getExtras().getString("editItemString");
             int pos = data.getExtras().getInt("pos");
-            items.set(pos, editItemString);
+            TodoItem item = (TodoItem) data.getSerializableExtra("item");
+            items.set(pos, item);
             itemsAdapter.notifyDataSetChanged();
-            writeItems();
+            //writeItems();
+            db.updateTodoItem(item);
         }
     }
 
@@ -53,9 +63,10 @@ public class MainActivity extends ActionBarActivity {
             new ListView.OnItemLongClickListener() {
                 @Override
                 public boolean onItemLongClick(AdapterView<?> adapter, View view, int pos, long id) {
+                    db.deleteTodoItem(items.get(pos));
                     items.remove(pos);
                     itemsAdapter.notifyDataSetChanged();
-                    writeItems();
+                    //writeItems();
                     return true;
                 }
             }
@@ -64,17 +75,27 @@ public class MainActivity extends ActionBarActivity {
             new ListView.OnItemClickListener() {
                 @Override
                 public void onItemClick(AdapterView<?> adapter, View view, int pos, long id) {
-                    Intent i = new Intent(MainActivity.this, EditItemActivity.class);
-                    i.putExtra("itemString", items.get(pos));
+                    /*Intent i = new Intent(MainActivity.this, EditItemActivity.class);
+                    i.putExtra("item", items.get(pos));
                     i.putExtra("pos", pos);
                     //startActivity(i);
                     startActivityForResult(i, REQUEST_CODE);
+                    */
+                    showEditDialog(pos, items.get(pos));
                     return;
+                }
+
+                private void  showEditDialog(int pos, TodoItem item) {
+                    FragmentManager fm = getSupportFragmentManager();
+                    EditItemFragment editItemFragment = EditItemFragment.newInstance(pos, item);
+                    editItemFragment.show(fm, "fragment_edit_item");
                 }
             }
         );
+
     }
 
+    /*
     private void readItems() {
         File filesDir = getFilesDir();
         File todoFile = new File(filesDir, "todo.txt");
@@ -84,8 +105,8 @@ public class MainActivity extends ActionBarActivity {
             items = new ArrayList<String>();
         }
     }
-
-    private void writeItems() {
+    */
+    /*private void writeItems() {
         File filesDir = getFilesDir();
         File todoFile = new File(filesDir, "todo.txt");
         try {
@@ -94,7 +115,32 @@ public class MainActivity extends ActionBarActivity {
             e.printStackTrace();
         }
 
+    }*/
+
+    @Override
+    public void onReceiveEditItem(int pos, String body) {
+        TodoItem item = (TodoItem) items.get(pos);
+        item.setBody(body);
+        itemsAdapter.notifyDataSetChanged();
+        db.updateTodoItem(item);
     }
+
+    @Override
+    public void onLaunchDatePicker(int pos) {
+        FragmentManager fm = getSupportFragmentManager();
+        TodoItem item = (TodoItem) items.get(pos);
+        DatePickerFragment datePickerFragment = DatePickerFragment.newInstance(this, pos, item);
+        datePickerFragment.show(fm, "");
+    }
+
+    @Override
+    public void onDateSet(int pos, long date) {
+        TodoItem item = (TodoItem) items.get(pos);
+        item.setDueDate(date);
+        //itemsAdapter.notifyDataSetChanged();
+        db.updateTodoItem(item);
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -120,10 +166,13 @@ public class MainActivity extends ActionBarActivity {
     public void onAddItem(View view) {
         EditText etNewItem = (EditText) findViewById(R.id.etNewItem);
         String itemString = etNewItem.getText().toString();
-        //items.add(itemString);
-        itemsAdapter.add(itemString);
+        TodoItem newItem = new TodoItem(itemString);
+        long id = db.addTodoItem(newItem);
+        newItem.setId((int)id);
+        items.add(newItem);
         etNewItem.setText("");
-        writeItems();
+        //itemsAdapter.add(itemString);
+        //writeItems();
     }
 
 }
